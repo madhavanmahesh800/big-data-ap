@@ -22,8 +22,8 @@ const Login = () => {
     
     try {
       setIsLoading(true);
-      const token = await loginUser(username, password);
-      setAuth(username, token);
+      await loginUser(username, password);
+      setAuth(username);
       toast({
         title: "Login successful",
         description: `Welcome back, ${username}!`,

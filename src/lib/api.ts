@@ -76,40 +76,10 @@ export const gqlRequest = async <T>(
       body: JSON.stringify({ query, variables }),
     });
 
-    if (!response.ok) {
-      // Handle HTTP errors (e.g., 401 Unauthorized, 500 Server Error)
-      const errorText = await response.text();
-      console.error(`HTTP Error: ${response.status} - ${errorText}`);
-      
-      // If token is invalid, clear auth data
-      if (response.status === 401) {
-        removeToken();
-        removeUsername();
-        throw new Error('Session expired. Please log in again.');
-      }
-      
-      throw new Error(`API request failed: ${response.statusText}`);
-    }
-
     const result = await response.json();
 
     if (result.errors) {
       console.error("GraphQL Errors:", result.errors);
-      
-      // Check for authentication errors in GraphQL response
-      const authError = result.errors.find((e: any) => 
-        e.message.includes('Unauthorized') || 
-        e.message.includes('authentication') ||
-        e.message.includes('token')
-      );
-      
-      if (authError) {
-        // If there's an auth error, clear credentials
-        removeToken();
-        removeUsername();
-        throw new Error('Session expired. Please log in again.');
-      }
-      
       throw new Error(result.errors[0].message);
     }
 
@@ -193,11 +163,10 @@ export const login = async (username: string, password: string): Promise<string>
   );
   
   // Save the token and username
-  const token = response.login;
-  setToken(token);
+  setToken(response.login);
   setUsername(username);
   
-  return token;
+  return response.login;
 };
 
 export const logout = async (): Promise<string> => {
