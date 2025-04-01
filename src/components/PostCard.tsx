@@ -20,7 +20,22 @@ const PostCard = ({ post }: PostCardProps) => {
     setLiked(!liked);
   };
   
-  const formattedTime = formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+  // Format timestamp safely
+  const formattedTime = (() => {
+    try {
+      // Ensure timestamp is a valid date
+      const date = new Date(timestamp);
+      // Check if date is valid before formatting
+      if (isNaN(date.getTime())) {
+        return "some time ago";
+      }
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      console.error("Error formatting time:", error);
+      return "some time ago";
+    }
+  })();
+  
   const initials = owner.username.slice(0, 2).toUpperCase();
   
   // Format the image URL correctly
