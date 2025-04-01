@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
-import { getMessages, sendMessage, Message as MessageType, deleteMessage } from "@/lib/api";
+import { getMessages, sendMessage, Message as MessageType, deleteMessage, getFollowing } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import Layout from "@/components/Layout";
@@ -10,12 +10,23 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SendHorizontal, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 const Messages = () => {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [following, setFollowing] = useState<string[]>([]);
+  const [loadingFollowing, setLoadingFollowing] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<string>("");
+  
   const { username } = useAuth();
   const { toast } = useToast();
   
@@ -38,8 +49,31 @@ const Messages = () => {
     }
   };
   
+  const fetchFollowing = async () => {
+    try {
+      setLoadingFollowing(true);
+      const followingData = await getFollowing();
+      setFollowing(followingData);
+      
+      // Set the first user as default if available
+      if (followingData.length > 0 && !selectedUser) {
+        setSelectedUser(followingData[0]);
+      }
+    } catch (error) {
+      console.error("Error fetching following:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load users you follow",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingFollowing(false);
+    }
+  };
+  
   useEffect(() => {
     fetchMessages();
+    fetchFollowing();
   }, [toast]);
   
   useEffect(() => {
@@ -75,6 +109,7 @@ const Messages = () => {
   
   const handleRefresh = () => {
     fetchMessages();
+    fetchFollowing();
   };
 
   return (
@@ -96,6 +131,36 @@ const Messages = () => {
           </CardHeader>
           
           <CardContent className="flex flex-col h-[calc(100%-8rem)]">
+            {/* User Selection */}
+            <div className="mb-4">
+              <Select 
+                value={selectedUser} 
+                onValueChange={setSelectedUser}
+                disabled={loadingFollowing || following.length === 0}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a user to message" />
+                </SelectTrigger>
+                <SelectContent>
+                  {following.map((user) => (
+                    <SelectItem key={user} value={user}>
+                      {user}
+                    </SelectItem>
+                  ))}
+                  {following.length === 0 && !loadingFollowing && (
+                    <SelectItem value="no-users" disabled>
+                      You're not following anyone yet
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              {loadingFollowing && (
+                <div className="mt-2">
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              )}
+            </div>
+            
             {/* Messages List */}
             <div className="flex-1 overflow-y-auto mb-4 pr-2">
               {loading ? (
@@ -134,14 +199,14 @@ const Messages = () => {
                 <Input
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
-                  disabled={sending}
+                  placeholder={selectedUser ? `Message to ${selectedUser}...` : "Select a user first..."}
+                  disabled={sending || !selectedUser}
                   className="flex-1"
                 />
                 <Button 
                   type="submit" 
                   className="bg-brand-400 hover:bg-brand-500"
-                  disabled={sending || !newMessage.trim()}
+                  disabled={sending || !newMessage.trim() || !selectedUser}
                 >
                   {sending ? (
                     <div className="animate-spin h-5 w-5 border-2 border-current border-t-transparent rounded-full" />
