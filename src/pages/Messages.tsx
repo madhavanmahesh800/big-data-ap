@@ -8,7 +8,7 @@ import MessageItem from "@/components/MessageItem";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SendHorizontal, RefreshCw } from "lucide-react";
+import { SendHorizontal, RefreshCw, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Select, 
@@ -17,6 +17,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import { useNavigate } from "react-router-dom";
 
 const Messages = () => {
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -29,6 +30,7 @@ const Messages = () => {
   
   const { username } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -36,7 +38,13 @@ const Messages = () => {
     try {
       setLoading(true);
       const messagesData = await getMessages();
-      setMessages(messagesData);
+      
+      // Sort messages by timestamp in ascending order (oldest first)
+      const sortedMessages = [...messagesData].sort((a, b) => {
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      });
+      
+      setMessages(sortedMessages);
     } catch (error) {
       console.error("Error fetching messages:", error);
       toast({
@@ -52,7 +60,9 @@ const Messages = () => {
   const fetchFollowing = async () => {
     try {
       setLoadingFollowing(true);
+      console.log("Fetching following list...");
       const followingData = await getFollowing();
+      console.log("Following data:", followingData);
       setFollowing(followingData);
       
       // Set the first user as default if available
@@ -84,13 +94,18 @@ const Messages = () => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !selectedUser) return;
     
     try {
       setSending(true);
       const sentMessage = await sendMessage(newMessage);
       setMessages(prev => [...prev, sentMessage]);
       setNewMessage("");
+      
+      toast({
+        title: "Message sent",
+        description: `Message sent to ${selectedUser}`,
+      });
     } catch (error) {
       console.error("Error sending message:", error);
       toast({
@@ -111,6 +126,10 @@ const Messages = () => {
     fetchMessages();
     fetchFollowing();
   };
+  
+  const goToDiscover = () => {
+    navigate('/discover');
+  };
 
   return (
     <Layout>
@@ -119,14 +138,24 @@ const Messages = () => {
           <CardHeader className="pb-3">
             <div className="flex justify-between items-center">
               <CardTitle>Messages</CardTitle>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={handleRefresh} 
-                title="Refresh messages"
-              >
-                <RefreshCw size={18} className="text-gray-500" />
-              </Button>
+              <div className="flex space-x-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={goToDiscover} 
+                  title="Find people to follow"
+                >
+                  <UserPlus size={18} className="text-gray-500" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleRefresh} 
+                  title="Refresh messages"
+                >
+                  <RefreshCw size={18} className="text-gray-500" />
+                </Button>
+              </div>
             </div>
           </CardHeader>
           
@@ -158,6 +187,18 @@ const Messages = () => {
                 <div className="mt-2">
                   <Skeleton className="h-4 w-32" />
                 </div>
+              )}
+              {following.length === 0 && !loadingFollowing && (
+                <p className="text-sm text-gray-500 mt-2">
+                  You need to follow users before you can message them.{" "}
+                  <Button 
+                    variant="link" 
+                    className="p-0 h-auto text-brand-500" 
+                    onClick={goToDiscover}
+                  >
+                    Discover users
+                  </Button>
+                </p>
               )}
             </div>
             
